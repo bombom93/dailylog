@@ -277,9 +277,7 @@ with tab1:
         df.loc[idx, "특이사항"] = special
         df.loc[idx, "감정한줄일기"] = memo
         save_log(df)
-        st.toast("오늘 기록 저장 완료!")
-        st.rerun()   # ✅ 저장 직후 새로고침
-
+        st.toast("오늘 기록 저장 완료!")  
 
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
@@ -290,15 +288,28 @@ with tab1:
 # ---------------------------------------------------
 # 2) 주별 모아보기 (표에서 직접 편집 + 저장, 변경된 셀만 반영)
 # ---------------------------------------------------
+# ---------------------------------------------------
+# 2) 주별 모아보기 (읽기 전용 표 + 줄바꿈 지원)
+# ---------------------------------------------------
 with tab2:
-    st.subheader("주별 모아보기 (편집 가능 표)")
+    st.subheader("주별 모아보기 (표)")
 
-    # 이번 주 날짜/라벨
+    # 줄바꿈 표시를 위한 CSS
+    st.markdown("""
+    <style>
+    [data-testid="stDataFrame"] td, 
+    [data-testid="stDataFrame"] th {
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        line-height: 1.3 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     days = week_dates(monday)  # [월,화,수,목,금,토,일]
     day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
-    label_to_date = dict(zip(day_labels, days))
 
-    # 행(항목) 순서
+    # 표 행 순서
     ROW_ORDER = [
         "기분", "에너지",
         "식욕", "수면",
@@ -307,61 +318,40 @@ with tab2:
         "오늘의 성취", "감정한줄일기",
     ]
 
-    # 표 데이터: 편집 친화적으로 원문 사용 (NaN -> "")
+    def fmt_cell(field: str, raw):
+        if pd.isna(raw):
+            return ""
+        s = str(raw).strip()
+
+        # 1~5 스케일 필드 이모지 포맷
+        if field == "기분":
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {MOOD_LABELS[v]}"
+        if field == "에너지":
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
+
+        # 긴 텍스트는 줄바꿈 유지 + 길이 제한
+        if field in ("감정한줄일기", "특이사항"):
+            s = s.replace("\r\n", "\n")
+            return s[:200] + ("…" if len(s) > 200 else "")
+
+        return s
+
+    # 주간 테이블 데이터 생성 (읽기 전용)
     table_rows = {}
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
             idx = day_row(df, d)  # 없으면 생성
             val = df.loc[idx, field] if field in df.columns else ""
-            row_vals.append("" if pd.isna(val) else str(val))
+            row_vals.append(fmt_cell(field, val))
         table_rows[field] = row_vals
 
-    # ⚠️ 이 스냅샷이 "저장 전 상태" (변경 감지에 사용)
-    weekly_edit_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
+    # 행=항목, 열=요일
+    weekly_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
 
-    # 에디터
-    st.caption("※ '기분', '에너지'는 1~5 사이 정수로 입력. 나머지는 자유 입력(줄바꿈 가능).")
-    edited_df = st.data_editor(
-        weekly_edit_df,
-        num_rows="fixed",            # 행 수 고정(항목 추가/삭제 방지)
-        use_container_width=True,
-        column_config={c: st.column_config.TextColumn(width="medium") for c in day_labels},
-        key=f"weekly_editor_{monday.isoformat()}",   # ✅ 주마다 에디터 상태 분리
-    )
-
-    # 저장 버튼
-    if st.button("💾 주간 변경 저장", type="primary", use_container_width=True):
-        changes = 0
-        for col_lbl in edited_df.columns:                # 각 요일 컬럼
-            d = label_to_date[col_lbl]
-            idx = day_row(df, d)                         # 없으면 생성
-            for field in ROW_ORDER:                      # 각 항목(행)
-                old = weekly_edit_df.loc[field, col_lbl]
-                new = edited_df.loc[field, col_lbl]
-
-                # NaN/빈문자 섞여도 공정하게 비교
-                old_s = "" if (old is None or (isinstance(old, float) and pd.isna(old))) else str(old)
-                new_s = "" if (new is None or (isinstance(new, float) and pd.isna(new))) else str(new)
-
-                if old_s == new_s:
-                    continue  # 변경 없음 → 건너뜀
-
-                # 숫자(1~5) 필드 검증
-                if field in NUMERIC_1_5:
-                    v = coerce_1_5(new_s)                # 1~5 아닌 값/빈값 -> None
-                    df.loc[idx, field] = "" if v is None else str(v)
-                else:
-                    df.loc[idx, field] = new_s
-                changes += 1
-
-        if changes == 0:
-            st.info("변경된 내용이 없어요.")
-        else:
-            save_log(df)
-            st.success(f"주간 변경 {changes}건 저장 완료!")
-            st.rerun()  # ✅ 저장 직후 새로고침
-
+    st.dataframe(weekly_df, use_container_width=True)
 
 # ---------------------------------------------------
 # 3) 월별 모아보기 (7열 카드, 해당 월만)
