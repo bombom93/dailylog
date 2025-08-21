@@ -223,22 +223,6 @@ with tab1:
         
     special = st.text_input('특이사항',value = str(df.loc[idx,'특이사항']))
 
-    st.markdown("**오늘의 할일(체크리스트)**")
-    tasks = parse_tasks(df.loc[idx, TASKS_COL])
-    new_tasks = []
-    # 기존 항목
-    for t_i, item in enumerate(tasks):
-        c1, c2 = st.columns([0.1, 0.9])
-        with c1:
-            done_val = st.checkbox("", value=bool(item.get("done", False)), key=f"today_done_{t_i}")
-        with c2:
-            task_txt = st.text_input("", value=str(item.get("task","")), key=f"today_task_{t_i}", label_visibility="collapsed")
-        new_tasks.append({"task": task_txt, "done": done_val})
-    # 새 항목 추가
-    add_txt = st.text_input("새 할일 추가", "")
-    if add_txt.strip():
-        new_tasks.append({"task": add_txt.strip(), "done": False})
-
     memo = st.text_area("감정 한 줄 일기", value=str(df.loc[idx, "감정한줄일기"]), height=100)
 
     if st.button("💾 오늘 저장", type="primary", use_container_width=True):
