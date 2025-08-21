@@ -278,7 +278,7 @@ with tab1:
         df.loc[idx, "감정한줄일기"] = memo
         save_log(df)
         st.toast("오늘 기록 저장 완료!")  
-
+        st.rerun()
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
@@ -292,66 +292,49 @@ with tab1:
 # 2) 주별 모아보기 (읽기 전용 표 + 줄바꿈 지원)
 # ---------------------------------------------------
 with tab2:
+    # 저장 직후 최신 상태 보장: 파일 재로드
+    df_weeklive = load_log()
+
     st.subheader("주별 모아보기 (표)")
-
-    # 줄바꿈 표시를 위한 CSS
-    st.markdown("""
-    <style>
-    [data-testid="stDataFrame"] td, 
-    [data-testid="stDataFrame"] th {
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-        line-height: 1.3 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    days = week_dates(monday)  # [월,화,수,목,금,토,일]
+    # (이하 df 대신 df_weeklive를 사용)
+    days = week_dates(monday)
     day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
 
-    # 표 행 순서
-    ROW_ORDER = [
-        "기분", "에너지",
-        "식욕", "수면",
-        "집중력", "가장 미룬일",
-        "두통", "특이사항",
-        "오늘의 성취", "감정한줄일기",
-    ]
+    ROW_ORDER = ["기분","에너지","식욕","수면","집중력","가장 미룬일","두통","특이사항","오늘의 성취","감정한줄일기"]
 
-    def fmt_cell(field: str, raw):
-        if pd.isna(raw):
-            return ""
+    def fmt_cell(field, raw):
+        if pd.isna(raw): return ""
         s = str(raw).strip()
-
-        # 1~5 스케일 필드 이모지 포맷
         if field == "기분":
-            v = coerce_1_5(s)
-            return "" if v is None else f"{v} {MOOD_LABELS[v]}"
+            v = coerce_1_5(s); return "" if v is None else f"{v} {MOOD_LABELS[v]}"
         if field == "에너지":
-            v = coerce_1_5(s)
-            return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
-
-        # 긴 텍스트는 줄바꿈 유지 + 길이 제한
-        if field in ("감정한줄일기", "특이사항"):
-            s = s.replace("\r\n", "\n")
-            return s[:200] + ("…" if len(s) > 200 else "")
-
+            v = coerce_1_5(s); return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
+        if field in ("감정한줄일기","특이사항"):
+            s = s.replace("\r\n","\n"); return s[:200] + ("…" if len(s) > 200 else "")
         return s
 
-    # 주간 테이블 데이터 생성 (읽기 전용)
     table_rows = {}
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
-            idx = day_row(df, d)  # 없으면 생성
-            val = df.loc[idx, field] if field in df.columns else ""
+            idx = day_row(df_weeklive, d)              # 없으면 생성(빈행)
+            val = df_weeklive.loc[idx, field] if field in df_weeklive.columns else ""
             row_vals.append(fmt_cell(field, val))
         table_rows[field] = row_vals
 
-    # 행=항목, 열=요일
     weekly_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
 
+    # 줄바꿈 보이게
+    st.markdown("""
+    <style>
+    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
+      white-space: pre-wrap !important; word-break: break-word !important; line-height: 1.3 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.dataframe(weekly_df, use_container_width=True)
+
 
 # ---------------------------------------------------
 # 3) 월별 모아보기 (7열 카드, 해당 월만)
