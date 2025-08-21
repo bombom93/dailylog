@@ -282,58 +282,58 @@ with tab1:
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
+# ---------------------------------------------------
+# 2) 주별 모아보기 (주간 요약 테이블)
+# ---------------------------------------------------
 with tab2:
     st.subheader("주별 모아보기 (표)")
 
-    # ✅ 항상 최신 파일에서 다시 읽는다
-    df_live = load_log()
-
-    # 줄바꿈 보이게 (그대로 유지)
-    st.markdown("""
-    <style>
-    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
-      white-space: pre-wrap !important; word-break: break-word !important; line-height: 1.3 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    days = week_dates(monday)
+    days = week_dates(monday)  # 월~일 날짜 리스트
+    # 컬럼 라벨: 08/19 (월) 형태
     day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
 
+    # 표에 넣을 행(원하는 순서로 수정 가능)
     ROW_ORDER = [
-        "기분","에너지","식욕","수면",
-        "집중력","가장 미룬일","두통","특이사항",
-        "오늘의 성취","감정한줄일기",
+        "기분", "에너지",
+        "식욕", "수면",
+        "집중력", "가장 미룬일",
+        "두통", "특이사항",
+        "오늘의 성취", "감정한줄일기",
     ]
 
-    def fmt_cell(field, raw):
-        if pd.isna(raw): return ""
+    def fmt_cell(field: str, raw):
+        """각 필드별 표기 형식 통일"""
+        if pd.isna(raw):
+            return ""
         s = str(raw).strip()
+
+        # 1~5 점수 필드 포맷
         if field == "기분":
-            v = coerce_1_5(s); return "" if v is None else f"{v} {MOOD_LABELS[v]}"
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {MOOD_LABELS[v]}"
         if field == "에너지":
-            v = coerce_1_5(s); return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
-        if field in ("감정한줄일기","특이사항"):
-            s = s.replace("\r\n","\n"); return s[:200] + ("…" if len(s) > 200 else "")
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
+
+        # 감정한줄일기만 길이 제한
+        if field == "감정한줄일기":
+            return s[:40] + ("..." if len(s) > 40 else "")
+
+        # 그 외 일반 텍스트
         return s
 
+    # 주간 테이블 데이터 구성
     table_rows = {}
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
-            idx_w = day_row(df_live, d)   # 없으면 인메모리 생성(보기용)
-            val = df_live.loc[idx_w, field] if field in df_live.columns else ""
-            row_vals.append(fmt_cell(field, val))
+            idx = day_row(df, d)  # 없으면 생성
+            raw = df.loc[idx, field] if field in df.columns else ""
+            row_vals.append(fmt_cell(field, raw))
         table_rows[field] = row_vals
 
-    weekly_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
+    weekly_df = pd.DataFrame(table_rows, index=day_labels).T  # 행=항목 / 열=요일
     st.dataframe(weekly_df, use_container_width=True)
-
-    # 🔎 디버그(임시): 오늘 행이 실제로 있는지 체크해보고, 없으면 경고
-    today_str = date.today().strftime("%Y-%m-%d")
-    if not (df_live["date"] == today_str).any():
-        st.warning(f"주의: 파일에 오늘({today_str}) 행이 없습니다. 저장 경로/권한을 확인하세요.")
-        st.caption(f"현재 CSV 경로: {os.path.abspath(LOG_FILE)}")
 
 
 # ---------------------------------------------------
