@@ -4,13 +4,15 @@ from datetime import date, timedelta
 import json, os
 
 st.set_page_config(page_title="데일리 로그 (보드형 UI)", layout="wide")
+
+# =========================
+# 로그인
+# =========================
 def login_required():
-    # 이미 로그인 상태면 통과
     if st.session_state.get("authed", False):
         return
 
     st.markdown("### 🔐 로그인")
-    # 아이디가 있으면 체크, 없으면 비번만 체크
     required_user = st.secrets.get("APP_USERNAME", None)
     pwd = st.text_input("비밀번호", type="password", key="pwd_input")
     user_ok = True
@@ -21,22 +23,25 @@ def login_required():
     if st.button("로그인", type="primary"):
         if user_ok and pwd == st.secrets.get("APP_PASSWORD", ""):
             st.session_state["authed"] = True
-            st.experimental_rerun()
+            st.rerun()  # ✅ 최신 rerun
         else:
             st.error("아이디 또는 비밀번호가 올바르지 않습니다.")
-    st.stop()  # 로그인 성공 전까지 아래 코드 실행 막기
+
+    st.stop()  # 로그인 성공 전까지 아래 코드 실행 차단
 
 def logout_button():
     with st.sidebar:
         if st.session_state.get("authed", False) and st.button("로그아웃"):
             st.session_state.clear()
-            st.experimental_rerun()
-# =========================
-# 설정
-# =========================
+            st.rerun()
 
-login_required()         # 🔒 이 줄 하나 추가  
+# 로그인 게이트
+login_required()
+logout_button()
 
+# =========================
+# 기본 설정
+# =========================
 LOG_FILE = "weekly_log.csv"
 DATE_FMT = "%Y-%m-%d"
 
@@ -45,8 +50,8 @@ ROWS = [
     "기분", "에너지", "수면", "식욕",
     "집중력", "가장 미룬일", "두통", "특이사항", "감정한줄일기"
 ]
-NUMERIC_1_5 = ["기분", "에너지"]     # 평균 대상
-TASKS_COL = "오늘의 할일"            # 체크리스트 JSON
+NUMERIC_1_5 = ["기분", "에너지"]
+TASKS_COL = "오늘의 할일"
 
 MOOD_LABELS = {1:"😞", 2:"😐", 3:"🙂", 4:"😊", 5:"🤩"}
 ENERGY_LABELS = {1:"⚡×", 2:"⚡", 3:"⚡⚡", 4:"⚡⚡⚡", 5:"🚀"}
@@ -59,7 +64,6 @@ def load_log():
         df = pd.read_csv(LOG_FILE, dtype=str, encoding="utf-8-sig")
         if "date" not in df.columns:
             df["date"] = ""
-        # 누락 컬럼 보정
         for r in ROWS:
             if r not in df.columns:
                 df[r] = "" if r != TASKS_COL else "[]"
@@ -73,7 +77,7 @@ def save_log(df: pd.DataFrame):
     df.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
 
 def get_monday(d: date) -> date:
-    return d - timedelta(days=d.weekday())  # 월=0
+    return d - timedelta(days=d.weekday())
 
 def week_dates(monday: date):
     return [monday + timedelta(days=i) for i in range(7)]
@@ -170,9 +174,9 @@ def week_month_avg(df: pd.DataFrame, monday: date, ref_day: date):
     return _avg(week_df), _avg(month_df), month_start, month_end
 
 # =========================
-# UI
+# 메인 UI
 # =========================
-st.title("📒 데일리 로그 – 보기 편한 보드 UI")
+st.title("📒 데일리 로그 – 보드형 UI")
 
 today = date.today()
 with st.sidebar:
@@ -202,8 +206,7 @@ tab1, tab2, tab3 = st.tabs(["🧱 주간 보드", "📋 주간 표", "📊 통�
 
 # ---- TAB 1: 주간 보드(카드형) ----
 with tab1:
-    st.caption("하루를 카드처럼 빠르게 입력합니다. 필요 항목만 최소 입력!")
-    # 7일을 3열 그리드로 배치
+    st.caption("하루를 카드처럼 빠르게 입력합니다.")
     cols = st.columns(3)
     for i, d in enumerate(dates):
         ds = d.strftime(DATE_FMT)
@@ -216,13 +219,12 @@ with tab1:
         with cols[i % 3]:
             with st.container(border=True):
                 st.markdown(f"### {d.strftime('%m/%d (%a)')}")
-                # 1~5 입력(라디오) – 이모지 라벨
+                # 기분/에너지 라디오
                 cc1, cc2 = st.columns(2)
                 with cc1:
                     mood_init = coerce_1_5(df.loc[idx, "기분"]) or 3
                     mood = st.radio(
-                        "기분",
-                        options=[1,2,3,4,5],
+                        "기분", [1,2,3,4,5],
                         format_func=lambda x: f"{x} {MOOD_LABELS[x]}",
                         horizontal=True,
                         index=[1,2,3,4,5].index(mood_init),
@@ -231,20 +233,17 @@ with tab1:
                 with cc2:
                     energy_init = coerce_1_5(df.loc[idx, "에너지"]) or 3
                     energy = st.radio(
-                        "에너지",
-                        options=[1,2,3,4,5],
+                        "에너지", [1,2,3,4,5],
                         format_func=lambda x: f"{x} {ENERGY_LABELS[x]}",
                         horizontal=True,
                         index=[1,2,3,4,5].index(energy_init),
                         key=f"energy_{ds}"
                     )
 
-                # 체크리스트(간단 입력)
+                # 할일 체크리스트
                 tasks = parse_tasks(df.loc[idx, TASKS_COL])
                 st.markdown("**오늘의 할일**")
-                # 간단 리스트 형태로 표시/체크
                 new_tasks = []
-                # 기존 항목
                 for t_i, item in enumerate(tasks):
                     colx, coly = st.columns([0.15, 0.85])
                     with colx:
@@ -252,17 +251,9 @@ with tab1:
                     with coly:
                         task_txt = st.text_input("", value=str(item.get("task","")), key=f"task_{ds}_{t_i}", label_visibility="collapsed")
                     new_tasks.append({"task": task_txt, "done": done_val})
-                # 새 항목 한 줄
                 add_txt = st.text_input("새 할일 추가", "", key=f"add_{ds}")
                 if add_txt.strip():
                     new_tasks.append({"task": add_txt.strip(), "done": False})
-
-                # 간단 메모(핵심만)
-                cc3, cc4 = st.columns(2)
-                with cc3:
-                    headache = st.selectbox("두통", ["", "O", "X"], index=["","O","X"].index(str(df.loc[idx, "두통"]) if str(df.loc[idx, "두통"]) in ["","O","X"] else ""), key=f"head_{ds}")
-                with cc4:
-                    sleep = st.text_input("수면(예: 7h/6.5h)", value=str(df.loc[idx, "수면"]), key=f"sleep_{ds}")
 
                 note = st.text_area("감정 한 줄 일기", value=str(df.loc[idx, "감정한줄일기"]), key=f"memo_{ds}", height=80)
 
@@ -270,24 +261,19 @@ with tab1:
                     df.loc[idx, "기분"] = str(mood)
                     df.loc[idx, "에너지"] = str(energy)
                     df.loc[idx, TASKS_COL] = dump_tasks(new_tasks)
-                    df.loc[idx, "두통"] = headache
-                    df.loc[idx, "수면"] = sleep
                     df.loc[idx, "감정한줄일기"] = note
                     save_log(df)
                     st.success("저장 완료")
 
-# ---- TAB 2: 주간 표(일괄 편집) ----
+# ---- TAB 2: 주간 표 ----
 with tab2:
-    st.caption("전체 항목을 표로 일괄 수정하고 싶을 때 사용하세요.")
+    st.caption("전체 항목을 표로 수정하고 싶을 때")
     mat = to_week_matrix(df_week, dates)
     edited = st.data_editor(
         mat,
         use_container_width=True,
         height=500,
         num_rows="fixed",
-        column_config={  # 최소한의 가독성 향상
-            # 날짜별 셀 폭 자동, 편집은 자유 입력
-        },
         key=f"table_{monday}"
     )
     if st.button("💾 표 저장", type="primary"):
@@ -303,30 +289,17 @@ with tab2:
         mime="text/csv"
     )
 
-# ---- TAB 3: 통계(주/월 평균) ----
+# ---- TAB 3: 통계 ----
 with tab3:
     wk_avg, mo_avg, mstart, mend = week_month_avg(df, monday, today)
     st.markdown("### 1~5 평균")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("이번주 평균 기분", wk_avg.get("기분") if wk_avg.get("기분") is not None else "-")
+        st.metric("이번주 평균 기분", wk_avg.get("기분") or "-")
     with c2:
-        st.metric("이번주 평균 에너지", wk_avg.get("에너지") if wk_avg.get("에너지") is not None else "-")
+        st.metric("이번주 평균 에너지", wk_avg.get("에너지") or "-")
     with c3:
-        st.metric(f"{today.strftime('%Y-%m')} 평균 기분", mo_avg.get("기분") if mo_avg.get("기분") is not None else "-")
+        st.metric(f"{today.strftime('%Y-%m')} 평균 기분", mo_avg.get("기분") or "-")
     with c4:
-        st.metric(f"{today.strftime('%Y-%m')} 평균 에너지", mo_avg.get("에너지") if mo_avg.get("에너지") is not None else "-")
+        st.metric(f"{today.strftime('%Y-%m')} 평균 에너지", mo_avg.get("에너지") or "-")
     st.caption(f"월 범위: {mstart.strftime(DATE_FMT)} ~ {mend.strftime(DATE_FMT)}")
-
-    # 체크리스트 완료율(이번주)
-    st.markdown("### 이번주 체크리스트 완료율")
-    week_dates_str = [d.strftime(DATE_FMT) for d in dates]
-    sub = df[df["date"].isin(week_dates_str)].copy()
-    def done_ratio(cell):
-        items = parse_tasks(cell)
-        if not items: return None
-        total = len(items)
-        done = sum(1 for x in items if x.get("done"))
-        return round(done/total, 2) if total > 0 else None
-    sub["완료율"] = sub[TASKS_COL].apply(done_ratio)
-    st.dataframe(sub[["date", "완료율"]].rename(columns={"date":"날짜"}), use_container_width=True)
