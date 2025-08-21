@@ -282,14 +282,18 @@ with tab1:
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
+# ---------------------------------------------------
+# 2) 주별 모아보기 (표에서 직접 편집 + 저장)
+# ---------------------------------------------------
 with tab2:
-    st.subheader("주별 모아보기 (표)")
+    st.subheader("주별 모아보기 (편집 가능 표)")
 
-    days = week_dates(monday)  # 월~일 날짜 리스트
-    # 컬럼 라벨: 08/19 (월) 형태
+    # 이번 주 날짜/라벨
+    days = week_dates(monday)  # [월,화,수,목,금,토,일]
     day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
+    label_to_date = dict(zip(day_labels, days))
 
-    # 표에 넣을 행(원하는 순서로 수정 가능)
+    # 행(항목) 순서
     ROW_ORDER = [
         "기분", "에너지",
         "식욕", "수면",
@@ -298,39 +302,53 @@ with tab2:
         "오늘의 성취", "감정한줄일기",
     ]
 
-    def fmt_cell(field: str, raw):
-        """각 필드별 표기 형식 통일"""
-        if pd.isna(raw):
-            return ""
-        s = str(raw).strip()
-
-        # 1~5 점수 필드 포맷
-        if field == "기분":
-            v = coerce_1_5(s)
-            return "" if v is None else f"{v} {MOOD_LABELS[v]}"
-        if field == "에너지":
-            v = coerce_1_5(s)
-            return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
-
-        # 감정한줄일기만 길이 제한
-        if field == "감정한줄일기":
-            return s[:40] + ("..." if len(s) > 40 else "")
-
-        # 그 외 일반 텍스트
-        return s
-
-    # 주간 테이블 데이터 구성
+    # 표 데이터: 편집을 위해 가공 최소화 (이모지/자르기 안함)
     table_rows = {}
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
             idx = day_row(df, d)  # 없으면 생성
-            raw = df.loc[idx, field] if field in df.columns else ""
-            row_vals.append(fmt_cell(field, raw))
+            val = df.loc[idx, field] if field in df.columns else ""
+            # 편집 친화적으로 원문 사용 (NaN -> "")
+            row_vals.append("" if pd.isna(val) else str(val))
         table_rows[field] = row_vals
 
-    weekly_df = pd.DataFrame(table_rows, index=day_labels).T  # 행=항목 / 열=요일
-    st.dataframe(weekly_df, use_container_width=True)
+    weekly_edit_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
+
+    # 컬럼 타입/유효성(숫자 1~5 제한) 지정
+    col_cfg = {}
+    for lbl in day_labels:
+        col_cfg[lbl] = st.column_config.TextColumn(width="medium")
+
+    # 숫자형 항목은 에디터에서 숫자 입력 가능하도록 별도 안내
+    st.caption("※ '기분', '에너지'는 1~5 사이 정수로 입력하세요. 나머지는 자유 입력(줄바꿈 가능).")
+
+    edited_df = st.data_editor(
+        weekly_edit_df,
+        num_rows="fixed",            # 행 수 고정(항목 추가/삭제 방지)
+        use_container_width=True,
+        column_config=col_cfg,
+        key="weekly_editor",
+    )
+
+    # 저장 버튼
+    if st.button("💾 주간 변경 저장", type="primary", use_container_width=True):
+        # edited_df를 원본 df에 반영
+        for col_lbl in edited_df.columns:                # 각 요일 컬럼
+            d = label_to_date[col_lbl]
+            idx = day_row(df, d)                         # 없으면 생성
+            for field in ROW_ORDER:                      # 각 항목(행)
+                val = edited_df.loc[field, col_lbl]
+
+                if field in NUMERIC_1_5:
+                    v = coerce_1_5(val)                  # 1~5 아닌 값/빈값 -> None
+                    df.loc[idx, field] = "" if v is None else str(v)
+                else:
+                    df.loc[idx, field] = "" if (val is None or (isinstance(val, float) and pd.isna(val))) else str(val)
+
+        save_log(df)
+        st.success("주간 변경 사항을 저장했어요!")
+
 
 # ---------------------------------------------------
 # 3) 월별 모아보기 (7열 카드, 해당 월만)
