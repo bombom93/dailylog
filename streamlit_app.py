@@ -146,17 +146,27 @@ def stats_week_month(df: pd.DataFrame, monday: date, ref_day: date):
 today = date.today()
 with st.sidebar:
     st.header("보기 기준")
-    # 주
-    picked_for_week = st.date_input("주 기준일", today, key="week_pick")
-    monday = get_monday(picked_for_week)
-    st.caption(f"주 범위: {monday.strftime(DATE_FMT)} ~ {(monday+timedelta(days=6)).strftime(DATE_FMT)}")
 
-    # 월
-    col_y, col_m = st.columns(2)
-    with col_y:
-        year_sel = st.number_input("연도", min_value=2000, max_value=2100, value=today.year, step=1)
-    with col_m:
-        month_sel = st.number_input("월", min_value=1, max_value=12, value=today.month, step=1)
+    # 연도 (고정 버튼 느낌으로)
+    st.markdown("### 연도")
+    year_sel = 2025
+    st.button("2025", disabled=True)  # 항상 2025로 고정
+
+    # 월 선택 (1~12 버튼)
+    st.markdown("### 월 선택")
+    cols = st.columns(6)  # 버튼을 6개씩 두 줄 배치
+    for i, m in enumerate(range(1, 13), start=1):
+        if cols[(i-1) % 6].button(f"{m}월", key=f"m{m}"):
+            st.session_state["month_sel"] = m
+    month_sel = st.session_state.get("month_sel", date.today().month)
+
+    # 주 선택 (1~52 버튼)
+    st.markdown("### 주 선택")
+    cols = st.columns(13)  # 13주씩 4줄 = 52주
+    for i in range(1, 53):
+        if cols[(i-1) % 13].button(f"{i}주", key=f"w{i}"):
+            st.session_state["week_sel"] = i
+    week_sel = st.session_state.get("week_sel", date.today().isocalendar().week)
 
 # 데이터 로드 및 해당 기간 확보
 df = load_log()
