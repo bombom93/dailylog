@@ -282,29 +282,54 @@ with tab1:
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
 with tab2:
-    st.subheader("주별 모아보기")
-    dates_week = week_dates(monday)
-    df_week = df[df["date"].isin([d.strftime(DATE_FMT) for d in dates_week])].copy()
+    st.subheader("주별 모아보기 (표)")
 
-    cols = st.columns(7)  # 한 줄에 7일
-    for i, d in enumerate(dates_week):
-        ds = d.strftime(DATE_FMT)
-        idx = day_row(df, d)
-        with cols[i % 7]:
-            with st.container(border=True):
-                st.markdown(f"**{d.strftime('%m/%d (%a)')}**")
-                mood = coerce_1_5(df.loc[idx, "기분"]) or "-"
-                energy = coerce_1_5(df.loc[idx, "에너지"]) or "-"
-                # 식욕을 1~5로 관리 중이면 출력에 활용 가능
-                # app = coerce_1_5(df.loc[idx, "식욕"]) or "-"
+    days = week_dates(monday)  # 월~일 날짜 리스트
+    # 컬럼 라벨: 08/19 (월) 형태
+    day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
 
-                st.write(f"기분: {mood if mood=='-' else str(mood)+' '+MOOD_LABELS[mood]}")
-                st.write(f"에너지: {energy if energy=='-' else str(energy)+' '+ENERGY_LABELS[energy]}")
+    # 표에 넣을 행(원하는 순서로 수정 가능)
+    ROW_ORDER = [
+        "기분", "에너지",
+        "식욕", "수면",
+        "집중력", "가장 미룬일",
+        "두통", "특이사항",
+        "오늘의 성취", "감정한줄일기",
+    ]
 
-                # 안전한 캡션 슬라이싱
-                raw = df.loc[idx, "감정한줄일기"]
-                text = "" if pd.isna(raw) else str(raw)
-                st.caption(text[:40] + ("..." if len(text) > 40 else ""))
+    def fmt_cell(field: str, raw):
+        """각 필드별 표기 형식 통일"""
+        if pd.isna(raw):
+            return ""
+        s = str(raw).strip()
+
+        # 1~5 점수 필드 포맷
+        if field == "기분":
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {MOOD_LABELS[v]}"
+        if field == "에너지":
+            v = coerce_1_5(s)
+            return "" if v is None else f"{v} {ENERGY_LABELS[v]}"
+
+        # 감정한줄일기만 길이 제한
+        if field == "감정한줄일기":
+            return s[:40] + ("..." if len(s) > 40 else "")
+
+        # 그 외 일반 텍스트
+        return s
+
+    # 주간 테이블 데이터 구성
+    table_rows = {}
+    for field in ROW_ORDER:
+        row_vals = []
+        for d in days:
+            idx = day_row(df, d)  # 없으면 생성
+            raw = df.loc[idx, field] if field in df.columns else ""
+            row_vals.append(fmt_cell(field, raw))
+        table_rows[field] = row_vals
+
+    weekly_df = pd.DataFrame(table_rows, index=day_labels).T  # 행=항목 / 열=요일
+    st.dataframe(weekly_df, use_container_width=True)
 
 # ---------------------------------------------------
 # 3) 월별 모아보기 (7열 카드, 해당 월만)
