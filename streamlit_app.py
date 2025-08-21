@@ -195,7 +195,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 오늘거 작성", "📅 주별 모아�
 with tab1:
     st.subheader(f"오늘({today.strftime('%Y-%m-%d %a')}) 기록")
     idx = day_row(df, today)
-    cols = st.columns(9)  # 한 줄 고정 레이아웃 느낌 유지
+    cols = st.columns(8)  # 한 줄 고정 레이아웃 느낌 유지
 
     with cols[0]:
         mood_init = coerce_1_5(df.loc[idx, "기분"]) or 3
@@ -220,8 +220,8 @@ with tab1:
         postpone = st.text_input("가장 미룬일", value=str(df.loc[idx, "가장 미룬일"]))
     with cols[7]:
         headache = st.text_input("두통",value=str(df.loc[idx, "두통"]))
-    with cols[8]:
-        special = st.text_input('특이사항',value = str(df.loc[idx,'특이사항']))
+
+    special = st.text_input('특이사항',value = str(df.loc[idx,'특이사항']))
 
     st.markdown("**오늘의 할일(체크리스트)**")
     tasks = parse_tasks(df.loc[idx, TASKS_COL])
