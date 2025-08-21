@@ -144,29 +144,47 @@ def stats_week_month(df: pd.DataFrame, monday: date, ref_day: date):
 # 사이드바: 주/월 선택
 # =========================
 today = date.today()
+# =========================
+# 사이드바: 연/월/주 버튼
+# =========================
+def iso_last_week(year: int) -> int:
+    # ISO 주차의 마지막 주: 12월 28일이 항상 마지막 ISO 주에 속함
+    return date(year, 12, 28).isocalendar().week
+
+today = date.today()
+
 with st.sidebar:
     st.header("보기 기준")
 
-    # 연도 (고정 버튼 느낌으로)
+    # 연: 2025 고정 버튼
     st.markdown("### 연도")
     year_sel = 2025
-    st.button("2025", disabled=True)  # 항상 2025로 고정
+    st.button("2025", disabled=True, use_container_width=True)
 
-    # 월 선택 (1~12 버튼)
+    # 월: 1~12 버튼
     st.markdown("### 월 선택")
-    cols = st.columns(6)  # 버튼을 6개씩 두 줄 배치
+    mcols = st.columns(6)  # 6개씩 2줄
     for i, m in enumerate(range(1, 13), start=1):
-        if cols[(i-1) % 6].button(f"{m}월", key=f"m{m}"):
+        if mcols[(i-1) % 6].button(f"{m}월", key=f"btn_m{m}"):
             st.session_state["month_sel"] = m
-    month_sel = st.session_state.get("month_sel", date.today().month)
+    month_sel = int(st.session_state.get("month_sel", today.month if today.year == year_sel else 1))
 
-    # 주 선택 (1~52 버튼)
+    # 주: 1~마지막 ISO주 버튼
     st.markdown("### 주 선택")
-    cols = st.columns(13)  # 13주씩 4줄 = 52주
-    for i in range(1, 53):
-        if cols[(i-1) % 13].button(f"{i}주", key=f"w{i}"):
+    max_week = iso_last_week(year_sel)  # 2025는 52주 (연도별 상이)
+    wcols = st.columns(13)  # 13개씩 4줄
+    for i in range(1, max_week + 1):
+        if wcols[(i-1) % 13].button(f"{i}주", key=f"btn_w{i}"):
             st.session_state["week_sel"] = i
-    week_sel = st.session_state.get("week_sel", date.today().isocalendar().week)
+    default_week = today.isocalendar().week if today.year == year_sel else 1
+    week_sel = int(st.session_state.get("week_sel", default_week))
+    if week_sel > max_week:
+        week_sel = max_week  # 안전 가드
+
+# 버튼 선택값으로 monday(해당 주의 월요일) 계산
+monday = date.fromisocalendar(year_sel, week_sel, 1)
+st.caption(f"주 범위: {monday.strftime('%Y-%m-%d')} ~ {(monday + timedelta(days=6)).strftime('%Y-%m-%d')}")
+
 
 # 데이터 로드 및 해당 기간 확보
 df = load_log()
