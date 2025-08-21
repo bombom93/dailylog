@@ -255,7 +255,7 @@ with tab1:
     with cols[3]:
         appetite = st.text_input("식욕", value=str(df.loc[idx, "식욕"]))
     with cols[4]:
-        concentrate = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
+        focus = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
     with cols[5]:
         postpone = st.text_input("가장 미룬일", value=str(df.loc[idx, "가장 미룬일"]))
     with cols[6]:
@@ -271,6 +271,7 @@ with tab1:
         df.loc[idx, "식욕"] = appetite
         df.loc[idx, "두통"] = headache
         df.loc[idx, "수면"] = sleep
+        df.lot[idx,'집중력']=focus
         df.loc[idx, "오늘의 성취"] = achv
         df.loc[idx, "가장 미룬일"] = postpone
         df.loc[idx, "특이사항"] = special
