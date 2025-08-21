@@ -148,7 +148,6 @@ def iso_last_week(year: int) -> int:
     return date(year, 12, 28).isocalendar().week
 
 today = date.today()
-year_sel = 2025   # 연도 고정
 max_week = iso_last_week(year_sel)
 
 # --- 라디오(월) 동일 너비 CSS ---
@@ -168,17 +167,6 @@ div[role="radiogroup"] > label{
 
 with st.sidebar:
     st.header("보기 기준")
-
-    # 연도 뱃지
-    st.markdown(
-        f"""
-        <div style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:12px;
-                    text-align:center;font-weight:600;background:#f8fafc;">
-            {year_sel}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
     # 월: 가로 라디오(필)
     st.markdown("##### 월 선택")
