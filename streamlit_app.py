@@ -195,7 +195,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 오늘거 작성", "📅 주별 모아�
 with tab1:
     st.subheader(f"오늘({today.strftime('%Y-%m-%d %a')}) 기록")
     idx = day_row(df, today)
-    cols = st.columns(8)  # 한 줄 고정 레이아웃 느낌 유지
+    cols = st.columns(7)  # 한 줄 고정 레이아웃 느낌 유지
 
     with cols[0]:
         mood_init = coerce_1_5(df.loc[idx, "기분"]) or 3
@@ -207,20 +207,20 @@ with tab1:
         energy = st.radio("에너지", [1,2,3,4,5],
                           format_func=lambda x: f"{x} {ENERGY_LABELS[x]}",
                           horizontal=True, index=[1,2,3,4,5].index(energy_init))
-    with cols[2]:
-        achv = st.text_input("오늘의 성취", value=str(df.loc[idx, "오늘의 성취"]))
-        
-    with cols[3]:
-        sleep = st.text_input("수면", value=str(df.loc[idx, "수면"]))
-    with cols[4]:
-        appetite = st.text_input("식욕",value=str(df.loc[idx, "식욕"]))
-    with cols[5]:
-        concentrate = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
-    with cols[6]:
-        postpone = st.text_input("가장 미룬일", value=str(df.loc[idx, "가장 미룬일"]))
-    with cols[7]:
-        headache = st.text_input("두통",value=str(df.loc[idx, "두통"]))
 
+    with cols[2]:
+        sleep = st.text_input("수면", value=str(df.loc[idx, "수면"]))
+    with cols[3]:
+        appetite = st.text_input("식욕",value=str(df.loc[idx, "식욕"]))
+    with cols[4]:
+        concentrate = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
+    with cols[5]:
+        postpone = st.text_input("가장 미룬일", value=str(df.loc[idx, "가장 미룬일"]))
+    with cols[6]:
+        headache = st.text_input("두통",value=str(df.loc[idx, "두통"]))
+    
+    achv = st.text_input("오늘의 성취", value=str(df.loc[idx, "오늘의 성취"]))
+        
     special = st.text_input('특이사항',value = str(df.loc[idx,'특이사항']))
 
     st.markdown("**오늘의 할일(체크리스트)**")
