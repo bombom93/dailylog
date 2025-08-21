@@ -221,7 +221,7 @@ with tab1:
     with cols[7]:
         headache = st.text_input("두통",value=str(df.loc[idx, "두통"]))
     with cols[8]:
-        special = st.text_input('특이사항',value = str(df.lot[idx,'특이사항']))
+        special = st.text_input('특이사항',value = str(df.loc[idx,'특이사항']))
 
     st.markdown("**오늘의 할일(체크리스트)**")
     tasks = parse_tasks(df.loc[idx, TASKS_COL])
