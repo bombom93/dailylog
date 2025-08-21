@@ -282,25 +282,29 @@ with tab1:
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
-# ---------------------------------------------------
-# 2) 주별 모아보기 (표에서 직접 편집 + 저장)
-# ---------------------------------------------------
-# ---------------------------------------------------
-# 2) 주별 모아보기 (표에서 직접 편집 + 저장, 변경된 셀만 반영)
-# ---------------------------------------------------
-# ---------------------------------------------------
-# 2) 주별 모아보기 (읽기 전용 표 + 줄바꿈 지원)
-# ---------------------------------------------------
 with tab2:
-    # 저장 직후 최신 상태 보장: 파일 재로드
-    df_weeklive = load_log()
-
     st.subheader("주별 모아보기 (표)")
-    # (이하 df 대신 df_weeklive를 사용)
+
+    # ✅ 항상 최신 파일에서 다시 읽는다
+    df_live = load_log()
+
+    # 줄바꿈 보이게 (그대로 유지)
+    st.markdown("""
+    <style>
+    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
+      white-space: pre-wrap !important; word-break: break-word !important; line-height: 1.3 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     days = week_dates(monday)
     day_labels = [d.strftime("%m/%d") + f" ({'월화수목금토일'[d.weekday()]})" for d in days]
 
-    ROW_ORDER = ["기분","에너지","식욕","수면","집중력","가장 미룬일","두통","특이사항","오늘의 성취","감정한줄일기"]
+    ROW_ORDER = [
+        "기분","에너지","식욕","수면",
+        "집중력","가장 미룬일","두통","특이사항",
+        "오늘의 성취","감정한줄일기",
+    ]
 
     def fmt_cell(field, raw):
         if pd.isna(raw): return ""
@@ -317,23 +321,19 @@ with tab2:
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
-            idx = day_row(df_weeklive, d)              # 없으면 생성(빈행)
-            val = df_weeklive.loc[idx, field] if field in df_weeklive.columns else ""
+            idx_w = day_row(df_live, d)   # 없으면 인메모리 생성(보기용)
+            val = df_live.loc[idx_w, field] if field in df_live.columns else ""
             row_vals.append(fmt_cell(field, val))
         table_rows[field] = row_vals
 
     weekly_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
-
-    # 줄바꿈 보이게
-    st.markdown("""
-    <style>
-    [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {
-      white-space: pre-wrap !important; word-break: break-word !important; line-height: 1.3 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     st.dataframe(weekly_df, use_container_width=True)
+
+    # 🔎 디버그(임시): 오늘 행이 실제로 있는지 체크해보고, 없으면 경고
+    today_str = date.today().strftime("%Y-%m-%d")
+    if not (df_live["date"] == today_str).any():
+        st.warning(f"주의: 파일에 오늘({today_str}) 행이 없습니다. 저장 경로/권한을 확인하세요.")
+        st.caption(f"현재 CSV 경로: {os.path.abspath(LOG_FILE)}")
 
 
 # ---------------------------------------------------
