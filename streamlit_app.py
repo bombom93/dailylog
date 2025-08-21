@@ -276,7 +276,6 @@ with tab2:
                 dr = done_ratio(df.loc[idx, TASKS_COL])
                 st.write(f"기분: {mood if mood=='-' else str(mood)+' '+MOOD_LABELS[mood]}")
                 st.write(f"에너지: {energy if energy=='-' else str(energy)+' '+ENERGY_LABELS[energy]}")
-                st.write(f"식욕: {app if app=='-' else str(app)+' '+APP_LABELS[app]}")
                 st.write(f"체크리스트 완료율: {f'{int(dr*100)}%' if dr is not None else '-'}")
                 st.caption(df.loc[idx, "감정한줄일기"][:40] + ("..." if len(str(df.loc[idx, '감정한줄일기']))>40 else ""))
 
@@ -306,7 +305,6 @@ with tab3:
                 st.markdown(f"**{d.strftime('%m/%d (%a)')}**")
                 st.write(f"기분: {mood if mood=='-' else str(mood)+' '+MOOD_LABELS[mood]}")
                 st.write(f"에너지: {energy if energy=='-' else str(energy)+' '+ENERGY_LABELS[energy]}")
-                st.write(f"식욕: {app if app=='-' else str(app)+' '+APP_LABELS[app]}")
                 st.write(f"체크리스트 완료율: {f'{int(dr*100)}%' if dr is not None else '-'}")
                 st.caption(memo[:40] + ("..." if len(memo)>40 else ""))
 
