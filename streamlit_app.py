@@ -140,10 +140,8 @@ def stats_week_month(df: pd.DataFrame, monday: date, ref_day: date):
 
     return _avg(week_df), _avg(month_df), mstart, mend
 
-
-
 # =========================
-# 사이드바: 2025 / 월(필) / 주(슬라이더)
+# 사이드바: 2025 / 월(라디오) / 주(슬라이더) + 오늘 버튼
 # =========================
 def iso_last_week(year: int) -> int:
     # ISO 마지막 주 — 12/28이 항상 마지막 ISO 주에 포함
@@ -151,6 +149,22 @@ def iso_last_week(year: int) -> int:
 
 today = date.today()
 year_sel = 2025   # 연도 고정
+max_week = iso_last_week(year_sel)
+
+# --- 라디오(월) 동일 너비 CSS ---
+st.markdown("""
+<style>
+/* 라디오 전체 가로 정렬 + 줄바꿈 */
+div[role="radiogroup"]{display:flex;flex-wrap:wrap;gap:6px}
+/* 각 라벨(필)을 동일 너비로 */
+div[role="radiogroup"] > label{
+  flex: 0 0 56px;              /* 👈 동일 너비 */
+  justify-content:center;
+  border-radius:999px !important;
+  white-space:nowrap;
+}
+</style>
+""", unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("보기 기준")
@@ -166,39 +180,47 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    # 월: 가로 라디오(필 느낌)
+    # 월: 가로 라디오(필)
     st.markdown("##### 월 선택")
     default_month = today.month if today.year == year_sel else 1
     month_sel = int(st.session_state.get("month_sel", default_month))
     month_sel = st.radio(
         "월 선택",
-        options=list(range(1, 13)),
+        options=list(range(1, 12+1)),
         index=month_sel - 1,
         format_func=lambda m: f"{m}월",
         horizontal=True,
         label_visibility="collapsed",
+        key="month_radio",
     )
     st.session_state["month_sel"] = month_sel
 
     st.divider()
 
-    # 주: 슬라이더 (1 ~ 마지막 ISO 주)
+    # 주: 슬라이더
     st.markdown("##### 주 선택")
-    max_week = iso_last_week(year_sel)
     default_week = min(today.isocalendar().week, max_week) if today.year == year_sel else 1
     week_sel = int(st.session_state.get("week_sel", default_week))
     week_sel = st.slider(
         "주 선택",
         min_value=1, max_value=max_week, value=week_sel, step=1,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="week_slider",
     )
     st.session_state["week_sel"] = week_sel
 
-# 선택한 주의 월요일 계산
-monday = date.fromisocalendar(year_sel, week_sel, 1)
+    # ── 오늘 기준으로 즉시 맞추는 버튼들 ──
+    bcol1, bcol2 = st.columns(2)
+    if bcol1.button("오늘 기준 월 선택", use_container_width=True):
+        st.session_state["month_sel"] = today.month
+        st.rerun()
+    if bcol2.button("오늘 기준 주 선택", use_container_width=True):
+        st.session_state["week_sel"] = min(today.isocalendar().week, max_week)
+        st.rerun()
+
+# 선택한 주의 월요일 계산(페이지 본문에서 사용)
+monday = date.fromisocalendar(year_sel, st.session_state["week_sel"], 1)
 st.caption(f"주 범위: {monday.strftime('%Y-%m-%d')} ~ {(monday + timedelta(days=6)).strftime('%Y-%m-%d')}")
-
-
 
 # 데이터 로드 및 해당 기간 확보
 df = load_log()
