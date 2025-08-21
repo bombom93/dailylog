@@ -149,7 +149,7 @@ def iso_last_week(year: int) -> int:
 
 today = date.today()
 max_week = iso_last_week(year_sel)
-
+year_sel = 2025
 # --- 라디오(월) 동일 너비 CSS ---
 st.markdown("""
 <style>
