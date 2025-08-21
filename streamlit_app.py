@@ -234,11 +234,17 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 오늘거 작성", "📅 주별 모아�
 # ---------------------------------------------------
 # 1) 오늘거 작성
 # ---------------------------------------------------
+# ---------------------------------------------------
+# 1) 날짜 선택 후 입력/저장 (과거·미래 날짜 지원)
+# ---------------------------------------------------
 with tab1:
-    st.subheader(f"오늘({today.strftime('%Y-%m-%d %a')}) 기록")
-    idx = day_row(df, today)
-    cols = st.columns(7)  # 한 줄 고정 레이아웃 느낌 유지
+    st.subheader("기록 작성")
 
+    # 📅 기록할 날짜 선택 (기본값=오늘)
+    pick_day = st.date_input("기록할 날짜", today, key="pick_day_input")
+    idx = day_row(df, pick_day)  # 선택한 날짜 행 보장
+
+    cols = st.columns(7)
     with cols[0]:
         mood_init = coerce_1_5(df.loc[idx, "기분"]) or 3
         mood = st.radio("기분", [1,2,3,4,5],
@@ -249,13 +255,12 @@ with tab1:
         energy = st.radio("에너지", [1,2,3,4,5],
                           format_func=lambda x: f"{x} {ENERGY_LABELS[x]}",
                           horizontal=True, index=[1,2,3,4,5].index(energy_init))
-
     with cols[2]:
         sleep = st.text_input("수면", value=str(df.loc[idx, "수면"]))
     with cols[3]:
         appetite = st.text_input("식욕", value=str(df.loc[idx, "식욕"]))
     with cols[4]:
-        focus = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
+        concentrate = st.text_input("집중력", value=str(df.loc[idx, "집중력"]))
     with cols[5]:
         postpone = st.text_input("가장 미룬일", value=str(df.loc[idx, "가장 미룬일"]))
     with cols[6]:
@@ -265,20 +270,35 @@ with tab1:
     special = st.text_input("특이사항", value=str(df.loc[idx, "특이사항"]))
     memo = st.text_area("감정 한 줄 일기", value=str(df.loc[idx, "감정한줄일기"]), height=100)
 
-    if st.button("💾 오늘 저장", type="primary", use_container_width=True):
+    # 빠른 이동 (옵션): 어제/내일 버튼
+    b1, b2, b3 = st.columns([1,1,4])
+    if b1.button("← 어제로", use_container_width=True):
+        st.session_state["pick_day_input"] = pick_day - timedelta(days=1)
+        st.rerun()
+    if b2.button("내일로 →", use_container_width=True):
+        st.session_state["pick_day_input"] = pick_day + timedelta(days=1)
+        st.rerun()
+
+    if st.button("💾 저장", type="primary", use_container_width=True):
         df.loc[idx, "기분"] = str(mood)
         df.loc[idx, "에너지"] = str(energy)
         df.loc[idx, "식욕"] = appetite
         df.loc[idx, "두통"] = headache
         df.loc[idx, "수면"] = sleep
-        df.loc[idx,'집중력']=focus
         df.loc[idx, "오늘의 성취"] = achv
         df.loc[idx, "가장 미룬일"] = postpone
         df.loc[idx, "특이사항"] = special
         df.loc[idx, "감정한줄일기"] = memo
         save_log(df)
-        st.toast("오늘 기록 저장 완료!")  
+
+        # ✅ 저장한 날짜 기준으로 주/월 포커싱 갱신
+        wk = pick_day.isocalendar().week
+        st.session_state["week_sel"] = wk
+        st.session_state["month_sel"] = pick_day.month
+
+        st.toast(f"{pick_day.strftime('%Y-%m-%d')} 기록 저장 완료!")
         st.rerun()
+
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
