@@ -277,13 +277,18 @@ with tab1:
         df.loc[idx, "특이사항"] = special
         df.loc[idx, "감정한줄일기"] = memo
         save_log(df)
-        st.success("오늘 기록 저장 완료!")
+        st.toast("오늘 기록 저장 완료!")
+        st.rerun()   # ✅ 저장 직후 새로고침
+
 
 # ---------------------------------------------------
 # 2) 주별 모아보기 (7열 카드)
 # ---------------------------------------------------
 # ---------------------------------------------------
 # 2) 주별 모아보기 (표에서 직접 편집 + 저장)
+# ---------------------------------------------------
+# ---------------------------------------------------
+# 2) 주별 모아보기 (표에서 직접 편집 + 저장, 변경된 셀만 반영)
 # ---------------------------------------------------
 with tab2:
     st.subheader("주별 모아보기 (편집 가능 표)")
@@ -302,52 +307,60 @@ with tab2:
         "오늘의 성취", "감정한줄일기",
     ]
 
-    # 표 데이터: 편집을 위해 가공 최소화 (이모지/자르기 안함)
+    # 표 데이터: 편집 친화적으로 원문 사용 (NaN -> "")
     table_rows = {}
     for field in ROW_ORDER:
         row_vals = []
         for d in days:
             idx = day_row(df, d)  # 없으면 생성
             val = df.loc[idx, field] if field in df.columns else ""
-            # 편집 친화적으로 원문 사용 (NaN -> "")
             row_vals.append("" if pd.isna(val) else str(val))
         table_rows[field] = row_vals
 
+    # ⚠️ 이 스냅샷이 "저장 전 상태" (변경 감지에 사용)
     weekly_edit_df = pd.DataFrame(table_rows, index=ROW_ORDER, columns=day_labels)
 
-    # 컬럼 타입/유효성(숫자 1~5 제한) 지정
-    col_cfg = {}
-    for lbl in day_labels:
-        col_cfg[lbl] = st.column_config.TextColumn(width="medium")
-
-    # 숫자형 항목은 에디터에서 숫자 입력 가능하도록 별도 안내
-    st.caption("※ '기분', '에너지'는 1~5 사이 정수로 입력하세요. 나머지는 자유 입력(줄바꿈 가능).")
-
+    # 에디터
+    st.caption("※ '기분', '에너지'는 1~5 사이 정수로 입력. 나머지는 자유 입력(줄바꿈 가능).")
     edited_df = st.data_editor(
         weekly_edit_df,
         num_rows="fixed",            # 행 수 고정(항목 추가/삭제 방지)
         use_container_width=True,
-        column_config=col_cfg,
-        key="weekly_editor",
+        column_config={c: st.column_config.TextColumn(width="medium") for c in day_labels},
+        key=f"weekly_editor_{monday.isoformat()}",   # ✅ 주마다 에디터 상태 분리
     )
 
     # 저장 버튼
     if st.button("💾 주간 변경 저장", type="primary", use_container_width=True):
-        # edited_df를 원본 df에 반영
+        changes = 0
         for col_lbl in edited_df.columns:                # 각 요일 컬럼
             d = label_to_date[col_lbl]
             idx = day_row(df, d)                         # 없으면 생성
             for field in ROW_ORDER:                      # 각 항목(행)
-                val = edited_df.loc[field, col_lbl]
+                old = weekly_edit_df.loc[field, col_lbl]
+                new = edited_df.loc[field, col_lbl]
 
+                # NaN/빈문자 섞여도 공정하게 비교
+                old_s = "" if (old is None or (isinstance(old, float) and pd.isna(old))) else str(old)
+                new_s = "" if (new is None or (isinstance(new, float) and pd.isna(new))) else str(new)
+
+                if old_s == new_s:
+                    continue  # 변경 없음 → 건너뜀
+
+                # 숫자(1~5) 필드 검증
                 if field in NUMERIC_1_5:
-                    v = coerce_1_5(val)                  # 1~5 아닌 값/빈값 -> None
+                    v = coerce_1_5(new_s)                # 1~5 아닌 값/빈값 -> None
                     df.loc[idx, field] = "" if v is None else str(v)
                 else:
-                    df.loc[idx, field] = "" if (val is None or (isinstance(val, float) and pd.isna(val))) else str(val)
+                    df.loc[idx, field] = new_s
+                changes += 1
 
-        save_log(df)
-        st.success("주간 변경 사항을 저장했어요!")
+        if changes == 0:
+            st.info("변경된 내용이 없어요.")
+        else:
+            save_log(df)
+            st.success(f"주간 변경 {changes}건 저장 완료!")
+            st.rerun()  # ✅ 저장 직후 새로고침
 
 
 # ---------------------------------------------------
