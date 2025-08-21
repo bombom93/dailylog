@@ -207,7 +207,7 @@ tab1, tab2, tab3 = st.tabs(["🧱 주간 보드", "📋 주간 표", "📊 통�
 # ---- TAB 1: 주간 보드(카드형) ----
 with tab1:
     st.caption("하루를 카드처럼 빠르게 입력합니다.")
-    cols = st.columns(3)
+    cols = st.columns(7)
     for i, d in enumerate(dates):
         ds = d.strftime(DATE_FMT)
         if (df["date"] == ds).any():
@@ -216,7 +216,7 @@ with tab1:
             idx = len(df); df.loc[idx, "date"] = ds
             for r in ROWS: df.loc[idx, r] = "" if r != TASKS_COL else "[]"
 
-        with cols[i % 3]:
+        with cols[i % 7]:
             with st.container(border=True):
                 st.markdown(f"### {d.strftime('%m/%d (%a)')}")
                 # 기분/에너지 라디오
