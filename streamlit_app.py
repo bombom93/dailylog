@@ -4,10 +4,39 @@ from datetime import date, timedelta
 import json, os
 
 st.set_page_config(page_title="데일리 로그 (보드형 UI)", layout="wide")
+def login_required():
+    # 이미 로그인 상태면 통과
+    if st.session_state.get("authed", False):
+        return
 
+    st.markdown("### 🔐 로그인")
+    # 아이디가 있으면 체크, 없으면 비번만 체크
+    required_user = st.secrets.get("APP_USERNAME", None)
+    pwd = st.text_input("비밀번호", type="password", key="pwd_input")
+    user_ok = True
+    if required_user:
+        user = st.text_input("아이디", key="user_input")
+        user_ok = (user == required_user)
+
+    if st.button("로그인", type="primary"):
+        if user_ok and pwd == st.secrets.get("APP_PASSWORD", ""):
+            st.session_state["authed"] = True
+            st.experimental_rerun()
+        else:
+            st.error("아이디 또는 비밀번호가 올바르지 않습니다.")
+    st.stop()  # 로그인 성공 전까지 아래 코드 실행 막기
+
+def logout_button():
+    with st.sidebar:
+        if st.session_state.get("authed", False) and st.button("로그아웃"):
+            st.session_state.clear()
+            st.experimental_rerun()
 # =========================
 # 설정
 # =========================
+
+login_required()         # 🔒 이 줄 하나 추가  
+
 LOG_FILE = "weekly_log.csv"
 DATE_FMT = "%Y-%m-%d"
 
